@@ -3,6 +3,9 @@ from aiogram.types import Message, callback_query
 from aiogram.filters import Command
 from aiogram import flags
 from aiogram.fsm.context import FSMContext
+from aiogram.types.input_file import FSInputFile
+import requests
+import time
 
 import kb
 import text
@@ -59,3 +62,26 @@ async def generate_image(msg: Message, state: FSMContext):
         return await mesg.edit_text(text.gen_error, reply_markup=kb.iexit_kb)
     await mesg.delete()
     await mesg.answer_photo(photo=img_res[0], caption=text.img_watermark)
+
+@router.callback_query(F.data == "generate_voice")
+async def input_text_prompt(clbck: callback_query.CallbackQuery, state: FSMContext):
+    await state.set_state(Gen.voice_prompt)
+    await clbck.message.edit_text(text.gen_voice)
+    await clbck.message.answer(text.gen_exit, reply_markup=kb.exit_kb)
+
+@router.message(Gen.voice_prompt)
+@flags.chat_action("upload_audio")
+async def generate_voice(msg: Message, state: FSMContext):
+    prompt = msg.text
+    mesg = await msg.answer(text.gen_wait)
+    res = await utils.generate_voice(prompt)
+    r = requests.get(res)
+   # print(res)
+    # if not res:
+    #     return await mesg.edit_text(text.gen_error, reply_markup=kb.iexit_kb)
+    unx_tine = int(time.time())
+    with open(f'{unx_tine}.ogg', 'wb') as file:
+        file.write(r.content)
+    document = FSInputFile(f'{unx_tine}.ogg')
+    # print(document)
+    await mesg.answer_voice(voice=document) # + text.text_watermark, disable_web_page_preview=True)
